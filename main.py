@@ -23,22 +23,22 @@ from create_bovw import create_bovw_df
 from evaluate import get_cluster_labels
 from evaluate import calculate_accuracy
 from sklearn.svm import LinearSVC
-import seaborn as sns
-sns.set()
+#import seaborn as sns
+#sns.set()
 
 import bovw_utils as utils
 
 np.seterr(divide='ignore', invalid='ignore')
 
 # Paths and parameters
-#GRID_SIZE=30
+GRID_SIZE=30
 km_filename = "km_bow"
 mnb_modelname='lda_model'
 #cluster_size=50
 real_topic=3
 NUM_TOPICS = 3
 ANNOTATION_FILE = "stroke_labels.txt"
-#c3dWinSize = 17
+c3dWinSize = 17
 nbins = 40
 mth = 2
 
@@ -50,7 +50,7 @@ MAIN_DATASET = "/home/arpan/VisionWorkspace/Cricket/dataset_25_fps_train_set"
 MAIN_LABELS = "/home/arpan/VisionWorkspace/Cricket/dataset_25_fps_train_set_labels"
 VAL_DATASET = "/home/arpan/VisionWorkspace/Cricket/dataset_25_fps_val_set"
 VAL_LABELS = "/home/arpan/VisionWorkspace/Cricket/dataset_25_fps_val_set_labels"
-#c3dFC7FeatsPath = "/home/arpan/VisionWorkspace/Cricket/localization_gru/c3dFinetuned_feats_"+str(c3dWinSize)
+c3dFC7FeatsPath = "/home/arpan/VisionWorkspace/Cricket/localization_gru/c3dFinetuned_feats_"+str(c3dWinSize)
 #c3dFC7MainFeatsPath = "/home/arpan/VisionWorkspace/Cricket/localization_gru/c3dFinetunedOnHLMainSeq23_mainDataset_train_feats_"+str(c3dWinSize)
 #c3dFC7ValFeatsPath = "/home/arpan/VisionWorkspace/Cricket/localization_gru/c3dFinetunedOnHLMainSeq23_mainDataset_test_feats_"+str(c3dWinSize)
 base_path = "/home/arpan/VisionWorkspace/Cricket/CricketStrokeLocalizationBOVW/logs"
@@ -64,7 +64,7 @@ if os.path.exists("/opt/datasets/cricket/ICC_WT20"):
     MAIN_LABELS = "/home/arpan/DATA_Drive/Cricket/dataset_25_fps_train_set_labels"
     VAL_DATASET = "/home/arpan/DATA_Drive/Cricket/dataset_25_fps_val_set"
     VAL_LABELS = "/home/arpan/DATA_Drive/Cricket/dataset_25_fps_val_set_labels"
-#    c3dFC7FeatsPath = "/home/arpan/DATA_Drive/Cricket/extracted_feats/c3dFinetuned_feats_"+str(c3dWinSize)
+    c3dFC7FeatsPath = "/home/arpan/DATA_Drive/Cricket/extracted_feats/c3dFinetuned_feats_"+str(c3dWinSize)
 #    c3dFC7MainFeatsPath = "/home/arpan/DATA_Drive/Cricket/extracted_feats/c3dFinetunedOnHLMainSeq23_mainDataset_train_feats_"+str(c3dWinSize)
 #    c3dFC7ValFeatsPath = "/home/arpan/DATA_Drive/Cricket/extracted_feats/c3dFinetunedOnHLMainSeq23_mainDataset_test_feats_"+str(c3dWinSize)
     base_path = "/home/arpan/DATA_Drive/Cricket/Workspace/CricketStrokeLocalizationBOVW/logs"
@@ -128,7 +128,7 @@ f = None
 #    out.release()
 
 
-def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, use_gpu=False):
+def main(base_name, nbins, cluster_size): # main(base_name, c3dWinSize=16, use_gpu=False):
 #if __name__ == '__main__':
     """
     Function to extract orientation features and find the directions of strokes, 
@@ -200,7 +200,7 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     # Extract HOOF features 
     
     # Get feats for only the training videos. Get ordered histograms of freq
-    print("GRID : {}, nClusters : {} ".format(GRID_SIZE, cluster_size))
+    print("nbins : {}, nClusters : {} ".format(nbins, cluster_size))
     
     #####################################################################
     # read into dictionary {vidname: np array, ...}
@@ -209,12 +209,12 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
 #    mainFeatures = utils.readAllPartitionFeatures(c3dFC7MainFeatsPath, train_lst_main)
 #    features.update(mainFeatures)     # Merge dicts
     # get Nx4096 numpy matrix with columns as features and rows as window placement features
-#    features, strokes_name_id = select_trimmed_feats(c3dFC7FeatsPath, LABELS, \
-#                                    train_lst, c3dWinSize) 
-    features, strokes_name_id = extract_stroke_feats(DATASET, LABELS, train_lst, \
-                                                     nbins, mth, True, GRID_SIZE) 
-#    with open(os.path.join(base_name, "ang_feats.pkl"), "wb") as fp:
-#        pickle.dump(features, fp)
+    features, strokes_name_id = select_trimmed_feats(c3dFC7FeatsPath, LABELS, \
+                                    train_lst, c3dWinSize) 
+#    features, strokes_name_id = extract_stroke_feats(DATASET, LABELS, train_lst, \
+#                                                     nbins, mth, True, GRID_SIZE) 
+    with open(os.path.join(base_name, "ang_feats.pkl"), "wb") as fp:
+        pickle.dump(features, fp)
         
     with open(os.path.join(base_name, "ang_feats.pkl"), "rb") as fp:
         features = pickle.load(fp)
@@ -248,11 +248,11 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     # Assign the words (flow frames) to their closest cluster centres and count the 
     # frequency for each document(video). Create IDF bow dataframe by weighting
     # df_train is (nVids, 50) for magnitude, with index as videonames
-#    print("Create a dataframe for C3D FC7 features...")
+    print("Create a dataframe for C3D FC7 features...")
 #    df_train_c3d, words_train = create_bovw_c3d_traindf(features, \
 #                                strokes_name_id, km_model, c3dWinSize)
     
-    print("Create a dataframe for HOOF features...")
+#    print("Create a dataframe for HOOF features...")
     df_train, words_train = create_bovw_df(features, strokes_name_id, km_model,\
                                                 base_name, "train")
 
@@ -349,12 +349,12 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
 
     # Evaluation on validation set
 
-#    features_val, strokes_name_id_val = select_trimmed_feats(c3dFC7FeatsPath, val_lst, \
-#                                                     c3dWinSize) 
-    features_val, strokes_name_id_val = extract_stroke_feats(DATASET, LABELS, val_lst, \
-                                                     nbins, mth, True, GRID_SIZE) 
-#    with open(os.path.join(base_name, "ang_feats_val.pkl"), "wb") as fp:
-#        pickle.dump(features_val, fp)
+    features_val, strokes_name_id_val = select_trimmed_feats(c3dFC7FeatsPath, LABELS,\
+                                                             val_lst, c3dWinSize) 
+#    features_val, strokes_name_id_val = extract_stroke_feats(DATASET, LABELS, val_lst, \
+#                                                     nbins, mth, True, GRID_SIZE) 
+    with open(os.path.join(base_name, "ang_feats_val.pkl"), "wb") as fp:
+        pickle.dump(features_val, fp)
 
     with open(os.path.join(base_name, "ang_feats_val.pkl"), "rb") as fp:
         features_val = pickle.load(fp)
@@ -431,26 +431,45 @@ if __name__ == '__main__':
     grids = []
     best_acc = []
     
-    best_acc = [0.8, 0.780952380952381, 0.780952380952381, 0.819047619047619, \
-                0.7428571428571429, 0.7904761904761904, \
-                0.8, 0.780952380952381, 0.780952380952381, 0.819047619047619, \
-                0.780952380952381, 0.8285714285714286, 0.7714285714285715, \
-                0.8, 0.819047619047619, 0.7714285714285715, 0.7428571428571429, \
-                0.7904761904761904, 0.7904761904761904, 0.7714285714285715]
+    # ofGrid Accuracies on validation
+#    best_acc = [0.8, 0.780952380952381, 0.780952380952381, 0.819047619047619, \
+#                0.7428571428571429, 0.7904761904761904, \
+#                0.8, 0.780952380952381, 0.780952380952381, 0.819047619047619, \
+#                0.780952380952381, 0.8285714285714286, 0.7714285714285715, \
+#                0.8, 0.819047619047619, 0.7714285714285715, 0.7428571428571429, \
+#                0.7904761904761904, 0.7904761904761904, 0.7714285714285715]
     
-    #cluster_size = 50
-    for grid in list(range(10, 41, 10)):
-        for cluster_size in list(range(10, 51, 10)):
-            #folder_name = "lda_HL_hoofNormed_b"+str(nbins)+"_mth"+str(mth)
-            folder_name = "bow_HL_ofAng_grid"+str(grid)
-            nclusters.append(cluster_size)
-            grids.append(grid)
+#    #cluster_size = 50
+#    for grid in list(range(10, 41, 10)):
+#        for cluster_size in list(range(10, 51, 10)):
+#            #folder_name = "lda_HL_hoofNormed_b"+str(nbins)+"_mth"+str(mth)
+#            folder_name = "bow_HL_ofAng_grid"+str(grid)
+#            nclusters.append(cluster_size)
+#            grids.append(grid)
 #            best_acc.append(main(os.path.join(base_path, folder_name), grid, cluster_size))
+#        
+#    
+#    
+#    df = pd.DataFrame({"#Clusters (#Words)":nclusters, "Grid(g)": grids, "Accuracy(percent)":best_acc})
+#    df = df.pivot("#Clusters (#Words)", "Grid(g)", "Accuracy(percent)")
+#    normal_heat = sns.heatmap(df, vmin=0., vmax=1., annot=True, fmt='.2f')
+#    normal_heat.figure.savefig(os.path.join(base_path, "normal_heat_hoof_clust.png"))
+    
+    ###########################################################################
+    # For HOOF features
+    #cluster_size = 50
+    #for nbins in list(range(10, 41, 10)):
+    nbins = 10
+    for cluster_size in list(range(10, 15, 10)):
+        #folder_name = "lda_HL_hoofNormed_b"+str(nbins)+"_mth"+str(mth)
+        folder_name = "bow_HL_c3d17_clust"+str(nbins)
+        nclusters.append(cluster_size)
+        #grids.append(nbins)
+        best_acc.append(main(os.path.join(base_path, folder_name), nbins, cluster_size))
         
     
     
-    df = pd.DataFrame({"#Clusters (#Words)":nclusters, "Grid(g)": grids, "Accuracy(percent)":best_acc})
-    df = df.pivot("#Clusters (#Words)", "Grid(g)", "Accuracy(percent)")
-    normal_heat = sns.heatmap(df, vmin=0., vmax=1., annot=True, fmt='.2f')
-    normal_heat.figure.savefig(os.path.join(base_path, "normal_heat_hoof_clust.png"))
-
+#    df = pd.DataFrame({"#Clusters (#Words)":nclusters, "#Bins(b)": grids, "Accuracy(percent)":best_acc})
+#    df = df.pivot("#Clusters (#Words)", "#Bins(b)", "Accuracy(percent)")
+#    normal_heat = sns.heatmap(df, vmin=0., vmax=1., annot=True, fmt='.2f')
+#    normal_heat.figure.savefig(os.path.join(base_path, "normal_heat_hoof_clust.png"))

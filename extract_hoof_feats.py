@@ -51,8 +51,8 @@ def extract_stroke_feats(vidsPath, labelsPath, partition_lst, nbins, mag_thresh=
             #print("Stroke {} - {}".format(m,n))
             strokes_name_id.append(k)
             # Extract the stroke features
-#            all_feats[k] = extract_flow_angles(os.path.join(vidsPath, v_file+".avi"), \
-#                     m, n, bins, mag_thresh, density)
+            all_feats[k] = extract_flow_angles(os.path.join(vidsPath, v_file+".avi"), \
+                     m, n, bins, mag_thresh, density)
 #            all_feats[k] = extract_flow_grid(os.path.join(vidsPath, v_file+".avi"), m, n, grid_size)
         #break
     return all_feats, strokes_name_id
