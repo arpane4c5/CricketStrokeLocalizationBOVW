@@ -38,7 +38,7 @@ def calculate_accuracy(gt_list, pred_list):
     pred_clus_nos = sorted(list(set(pred_list)))
     n_clusters_gt = len(gt_clus_nos)
     n_clusters_pred = len(pred_clus_nos)
-    assert n_clusters_gt==n_clusters_pred, "Unequal no. of clusters {} and {}".format(n_clusters_gt, n_clusters_pred)
+    assert n_clusters_gt>=n_clusters_pred, "Predicted more clusters {} : GT {}".format(n_clusters_pred, n_clusters_gt)
     
     for i,x in enumerate(pred_clus_nos):
         assert x==gt_clus_nos[i], "Cluster no. mismatch {} / {}".format(gt_clus_nos[i], x)

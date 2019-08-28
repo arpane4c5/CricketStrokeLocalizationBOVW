@@ -16,7 +16,7 @@ import numpy as np
 
 
 def extract_stroke_feats(vidsPath, labelsPath, partition_lst, nbins, mag_thresh=2, \
-                         grid_size=30):
+                         density=False, grid_size=30):
     """
     Function to iterate on all the training videos and extract the relevant features.
     vidsPath: str
@@ -48,20 +48,17 @@ def extract_stroke_feats(vidsPath, labelsPath, partition_lst, nbins, mag_thresh=
         frame_indx = list(frame_dict.values())[0]
         for m,n in frame_indx:
             k = v_file+"_"+str(m)+"_"+str(n)
-            print("Stroke {} - {}".format(m,n))
+            #print("Stroke {} - {}".format(m,n))
             strokes_name_id.append(k)
             # Extract the stroke features
-            #all_feats[k] = extract_flow_angles(os.path.join(vidsPath, v_file+".avi"), m, n, bins, mag_thresh)
-            all_feats[k] = extract_flow_grid(os.path.join(vidsPath, v_file+".avi"), m, n, grid_size)
-#        if all_feats is None:
-#            all_feats = stroke_features
-#        else:
-#            all_feats = np.vstack((all_feats, stroke_features))
+#            all_feats[k] = extract_flow_angles(os.path.join(vidsPath, v_file+".avi"), \
+#                     m, n, bins, mag_thresh, density)
+#            all_feats[k] = extract_flow_grid(os.path.join(vidsPath, v_file+".avi"), m, n, grid_size)
         #break
     return all_feats, strokes_name_id
 
 
-def extract_flow_angles(vidFile, start, end, hist_bins, mag_thresh):
+def extract_flow_angles(vidFile, start, end, hist_bins, mag_thresh, density=False):
     '''
     Extract optical flow maps from video vidFile for all the frames and put the angles with >mag_threshold in different 
     bins. The bins vector is the feature representation for the stroke. 
@@ -116,7 +113,7 @@ def extract_flow_angles(vidFile, start, end, hist_bins, mag_thresh):
         pixAboveThresh = np.sum(mag>mag_thresh)
         #use weights=mag[mag>THRESH] to be weighted with magnitudes
         #returns a tuple of (histogram, bin_boundaries)
-        ang_hist = np.histogram(ang[mag>mag_thresh], bins=hist_bins)
+        ang_hist = np.histogram(ang[mag>mag_thresh], bins=hist_bins, density=density)
         stroke_features.append(ang_hist[0])
         #sum_norm_mag_ang +=ang_hist[0]
 #            if not pixAboveThresh==0:
@@ -129,7 +126,7 @@ def extract_flow_angles(vidFile, start, end, hist_bins, mag_thresh):
     #cv2.destroyAllWindows()
     stroke_features = np.array(stroke_features)
     #Normalize row - wise
-    stroke_features = stroke_features/(1+stroke_features.sum(axis=1)[:, None])
+    #stroke_features = stroke_features/(1+stroke_features.sum(axis=1)[:, None])
     return stroke_features
 
 
@@ -189,8 +186,7 @@ def extract_flow_grid(vidFile, start, end, grid_size):
         sliced_flow = np.stack(( mag[::grid_size, ::grid_size], \
                                 ang[::grid_size, ::grid_size]), axis=0)
                 
-        #feature.append(sliced_flow[..., 0].ravel())
-        stroke_features.append(sliced_flow[..., 1].ravel())     # Only angles
+        stroke_features.append(sliced_flow[1, ...].ravel())     # Only angles
         #feature = np.array(feature)
         #stroke_features.append(sliced_flow)
         
