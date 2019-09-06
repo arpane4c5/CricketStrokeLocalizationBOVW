@@ -1,2 +1,4 @@
+logs/
+results_log/
 kmeans_model*
 *.pyc
