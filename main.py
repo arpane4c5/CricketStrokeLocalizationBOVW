@@ -17,6 +17,8 @@ from gensim.corpora import Dictionary
 from gensim import corpora
 from sklearn.externals import joblib
 from extract_hoof_feats import extract_stroke_feats
+from extract_cnn_feats import extract_feats
+from extract_cnn_feats import apply_clustering
 from read_c3d_feats import select_trimmed_feats
 from create_bovw import make_codebook
 from create_bovw import create_bovw_df
@@ -36,8 +38,8 @@ km_filename = "km_bow"
 mnb_modelname='lda_model'
 #cluster_size=50
 real_topic=3
-NUM_TOPICS = 3
-ANNOTATION_FILE = "stroke_labels.txt"
+NUM_TOPICS = 5
+ANNOTATION_FILE = "shots_classes.txt"
 #c3dWinSize = 17
 nbins = 40
 mth = 2
@@ -69,63 +71,7 @@ if os.path.exists("/opt/datasets/cricket/ICC_WT20"):
 #    c3dFC7ValFeatsPath = "/home/arpan/DATA_Drive/Cricket/extracted_feats/c3dFinetunedOnHLMainSeq23_mainDataset_test_feats_"+str(c3dWinSize)
     base_path = "/home/arpan/DATA_Drive/Cricket/Workspace/CricketStrokeLocalizationBOVW/logs"
 
-
-
-f = None
-# save video according to their label
-#def write_strokes(labels, bins, thresh):
-#    global f
-#    flows_path = get_ordered_strokes_list()
-#
-#    #flows_path = sorted(os.listdir(flows_numpy_path))
-#    n_clusters = max(labels) + 1
-#    print("clusters, ", n_clusters)
-#    for i in range(n_clusters):
-#        ######
-#        try:
-#            os.makedirs(os.path.join(base_name, "bins_"+str(bins)+"_th_"+str(thresh), str(i)))
-#        except Exception as e:
-#            print("except", e)
-#        #######
-#        for count,j in enumerate(np.where(labels==i)[0]):
-#            vid_data = flows_path[j].split('_')
-#            m, n = map(int, vid_data[-2:])
-#            vid_name = vid_data[0]
-#            f = ''.join(vid_name.split(' ')[2:-1])+"_"+str(m)+"_"+str(n)
-#            save_video(os.path.join(DATASET, vid_name+'.avi'), m, n, i, bins, thresh)
-#            if count==9:
-#                break
-
-            
-#def get_frame(cap, frame_no):
-#    # get total number of frames
-#    totalFrames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-#    # check for valid frame number
-#    if frame_no >= 0 & frame_no <= totalFrames:
-#        # set frame position
-#        cap.set(cv2.CAP_PROP_POS_FRAMES,frame_no)
-#        _, img = cap.read()
-#        return img
-#    print("invalid frame, ", frame_no)
-#    sys.exit()
-#
-#def save_video(filename, m, n, label, bins, thresh):
-#    global f
-#    eval_path = os.path.join(base_name, "bins_"+str(bins)+"_th_"+str(thresh), str(label))
-#    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-#    vid_out_path = os.path.join(eval_path, f+'.avi')
-#    out = cv2.VideoWriter(vid_out_path, fourcc, 25.0, (320, 180), True)
-#    cap = cv2.VideoCapture(filename)
-#    if cap.isOpened():
-#        pass
-#    else:
-#        print("closed")
-#        sys.exit()
-#    for i in range(m, n+1):
-#        img = cv2.resize(get_frame(cap, i), (320, 180), interpolation=cv2.INTER_AREA)
-#        out.write(img)
-#    cap.release()
-#    out.release()
+CLASS_IDS = "/home/arpan/VisionWorkspace/Cricket/cluster_strokes/configs/Class Index_Strokes.txt"
 
 
 def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, use_gpu=False):
@@ -213,8 +159,12 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
 #                                    train_lst, c3dWinSize) 
     features, strokes_name_id = extract_stroke_feats(DATASET, LABELS, train_lst, \
                                                      nbins, mth, True, GRID_SIZE) 
-    with open(os.path.join(base_name, "ang_feats.pkl"), "wb") as fp:
-        pickle.dump(features, fp)
+    
+#    BATCH_SIZE, SEQ_SIZE, STEP = 8, 16, 16
+#    features, strokes_name_id = extract_feats(DATASET, LABELS, CLASS_IDS, BATCH_SIZE, 
+#                                              SEQ_SIZE, STEP, extractor='3dcnn')
+#    with open(os.path.join(base_name, "ang_feats.pkl"), "wb") as fp:
+#        pickle.dump(features, fp)
         
     with open(os.path.join(base_name, "ang_feats.pkl"), "rb") as fp:
         features = pickle.load(fp)
@@ -236,10 +186,10 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     
     km_filepath = os.path.join(base_name, km_filename+".pkl")
 #    # Uncomment only while training.
-    km_model = make_codebook(vecs, cluster_size) 
-#    # Save to disk, if training is performed
-#    print("Writing the KMeans models to disk...")
-    pickle.dump(km_model, open(km_filepath+"_C"+str(cluster_size), "wb"))
+#    km_model = make_codebook(vecs, cluster_size) 
+##    # Save to disk, if training is performed
+##    print("Writing the KMeans models to disk...")
+#    pickle.dump(km_model, open(km_filepath+"_C"+str(cluster_size), "wb"))
     # Load from disk, for validation and test sets.
     km_model = pickle.load(open(km_filepath+"_C"+str(cluster_size), 'rb'))
     
@@ -259,7 +209,17 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     # read the stroke annotation labels from text file.
     vids_list = list(df_train.index)
     labs_keys, labs_values = get_cluster_labels(ANNOTATION_FILE)
+    if min(labs_values) == 1:
+        labs_values = [l-1 for l in labs_values]
+        labs_keys = [k.replace('.avi', '') for k in labs_keys]
     train_labels = np.array([labs_values[labs_keys.index(v)] for v in vids_list])
+    
+    ###########################################################################
+                
+#    apply_clustering(df_train, DATASET, LABELS, ANNOTATION_FILE, base_path)
+
+    
+    ###########################################################################
     
     print("Training stroke labels : ")
     print(train_labels)
@@ -278,71 +238,71 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     
     print("Training dataframe formed.")
     ###########################################################################
-    # Train a classifier on the features.
-    print("LDA execution !!! ")
-    #Run LDA
-    
-    # Get list of lists. Each sublist contains video cluster strIDs (words). 
-    # Eg. [["39","29","39","39","0", ...], ...]
-    doc_clean = [doc.split() for doc in words_train]
-    #print(doc_clean)
-    diction=corpora.Dictionary(doc_clean)    # Form a dictionary
-    print("printing dictionary after corp  {} ".format(diction))
-    doc_term_matrix = [diction.doc2bow(doc) for doc in doc_clean]
-    #dictionary = corpora.Dictionary(diction)
-    
-    # Inference using the data.
-    ldamodel_obj = gensim.models.ldamodel.LdaModel(doc_term_matrix, \
-                    num_topics = NUM_TOPICS, id2word=diction, passes=10, \
-                    random_state=seed)
-#    ldamodel_obj = gensim.models.ldaseqmodel.LdaSeqModel(doc_term_matrix, \
-#                                        num_topics=3, time_slice=[351])
-#    ldamodel_obj = gensim.models.LsiModel(doc_term_matrix, num_topics=3, \
-#                                          id2word = diction)
-
-    print("training complete saving to disk ")
-    #save model to disk 
-    joblib.dump(ldamodel_obj, os.path.join(base_name, mnb_modelname+".pkl"))
-
-    # Load trained model from disk
-    ldamodel_obj = joblib.load(os.path.join(base_name, mnb_modelname+".pkl"))
-    
-    # Print all the topics
-    for i,topic in enumerate(ldamodel_obj.print_topics(num_topics=3, num_words=10)):
-        #print("topic is {}".format(topic))
-        word = topic[1].split("+")
-        print("{} : {} ".format(topic[0], word))
-        
-    # actions are rows and discovered topics are columns
-    topic_action_map = np.zeros((real_topic, NUM_TOPICS))
-    
-    predicted_labels = []
-    #vids_list = list(df_train_mag.index)
-    for j,vname in enumerate(vids_list):
-        label_vid = train_labels[j]
-        # sort the tuples with descending topic probabilities
-        for index, score in sorted(ldamodel_obj[doc_term_matrix[j]], key=lambda tup: -1*tup[1]):
-#        for index in [ldamodel_obj[doc_term_matrix[j]].argmax(axis=0)]:
-         #   print("Score is : {} of Topic: {}".format(score,index))
-            #if score>0.5:
-            #    topic_action_map[label_vid][index]+=1
-#            score = ldamodel_obj[doc_term_matrix[j]][index]
-            topic_action_map[label_vid][index]+=score
-            predicted_labels.append(index)  
-            break
-    print("Training Time : topic action mapping is : ")
-    print("topic0  topic1  topic2")
-    #coloumn are topics and rows are labels
-    print(topic_action_map)
-    acc_values_tr, perm_tuples_tr, gt_list, pred_list = calculate_accuracy(train_labels,\
-                                                            predicted_labels)
-    acc_perc = [sum(k)/len(predicted_labels) for k in acc_values_tr]
-    
-    best_indx = acc_perc.index(max(acc_perc))
-    print("Max Acc. : ", max(acc_perc))
-    print("Acc values : ", acc_perc)
-    print("Acc values : ", acc_values_tr)
-    print("perm_tuples : ", perm_tuples_tr)
+#    # Train a classifier on the features.
+#    print("LDA execution !!! ")
+#    #Run LDA
+#    
+#    # Get list of lists. Each sublist contains video cluster strIDs (words). 
+#    # Eg. [["39","29","39","39","0", ...], ...]
+#    doc_clean = [doc.split() for doc in words_train]
+#    #print(doc_clean)
+#    diction=corpora.Dictionary(doc_clean)    # Form a dictionary
+#    print("printing dictionary after corp  {} ".format(diction))
+#    doc_term_matrix = [diction.doc2bow(doc) for doc in doc_clean]
+#    #dictionary = corpora.Dictionary(diction)
+#    
+#    # Inference using the data.
+#    ldamodel_obj = gensim.models.ldamodel.LdaModel(doc_term_matrix, \
+#                    num_topics = NUM_TOPICS, id2word=diction, passes=10, \
+#                    random_state=seed)
+##    ldamodel_obj = gensim.models.ldaseqmodel.LdaSeqModel(doc_term_matrix, \
+##                                        num_topics=3, time_slice=[351])
+##    ldamodel_obj = gensim.models.LsiModel(doc_term_matrix, num_topics=3, \
+##                                          id2word = diction)
+#
+#    print("training complete saving to disk ")
+#    #save model to disk 
+#    joblib.dump(ldamodel_obj, os.path.join(base_name, mnb_modelname+".pkl"))
+#
+#    # Load trained model from disk
+#    ldamodel_obj = joblib.load(os.path.join(base_name, mnb_modelname+".pkl"))
+#    
+#    # Print all the topics
+#    for i,topic in enumerate(ldamodel_obj.print_topics(num_topics=3, num_words=10)):
+#        #print("topic is {}".format(topic))
+#        word = topic[1].split("+")
+#        print("{} : {} ".format(topic[0], word))
+#        
+#    # actions are rows and discovered topics are columns
+#    topic_action_map = np.zeros((real_topic, NUM_TOPICS))
+#    
+#    predicted_labels = []
+#    #vids_list = list(df_train_mag.index)
+#    for j,vname in enumerate(vids_list):
+#        label_vid = train_labels[j]
+#        # sort the tuples with descending topic probabilities
+#        for index, score in sorted(ldamodel_obj[doc_term_matrix[j]], key=lambda tup: -1*tup[1]):
+##        for index in [ldamodel_obj[doc_term_matrix[j]].argmax(axis=0)]:
+#         #   print("Score is : {} of Topic: {}".format(score,index))
+#            #if score>0.5:
+#            #    topic_action_map[label_vid][index]+=1
+##            score = ldamodel_obj[doc_term_matrix[j]][index]
+#            topic_action_map[label_vid][index]+=score
+#            predicted_labels.append(index)  
+#            break
+#    print("Training Time : topic action mapping is : ")
+#    print("topic0  topic1  topic2")
+#    #coloumn are topics and rows are labels
+#    print(topic_action_map)
+#    acc_values_tr, perm_tuples_tr, gt_list, pred_list = calculate_accuracy(train_labels,\
+#                                                            predicted_labels)
+#    acc_perc = [sum(k)/len(predicted_labels) for k in acc_values_tr]
+#    
+#    best_indx = acc_perc.index(max(acc_perc))
+#    print("Max Acc. : ", max(acc_perc))
+#    print("Acc values : ", acc_perc)
+#    print("Acc values : ", acc_values_tr)
+#    print("perm_tuples : ", perm_tuples_tr)
     
     #model_ang = joblib.load(os.path.join(destpath, mnb_modelname+"_ang.pkl"))
 ##################################################################################
@@ -351,12 +311,12 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
 
 #    features_val, strokes_name_id_val = select_trimmed_feats(c3dFC7FeatsPath, \
 #                                            LABELS, val_lst, c3dWinSize) 
-    features_val, strokes_name_id_val = extract_stroke_feats(DATASET, LABELS, test_lst, \
+    features_val, strokes_name_id_val = extract_stroke_feats(DATASET, LABELS, val_lst, \
                                                      nbins, mth, True, GRID_SIZE) 
-    with open(os.path.join(base_name, "ang_feats_test.pkl"), "wb") as fp:
-        pickle.dump(features_val, fp)
+#    with open(os.path.join(base_name, "ang_feats_test.pkl"), "wb") as fp:
+#        pickle.dump(features_val, fp)
 
-    with open(os.path.join(base_name, "ang_feats_test.pkl"), "rb") as fp:
+    with open(os.path.join(base_name, "ang_feats_val.pkl"), "rb") as fp:
         features_val = pickle.load(fp)
 
     print("Create dataframe BOVW validation set...")
@@ -366,26 +326,26 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     vids_list_val = list(df_val_hoof.index)
     val_labels = np.array([labs_values[labs_keys.index(v)] for v in vids_list_val])
     
-    topic_action_map_val = np.zeros((real_topic, NUM_TOPICS))
-    doc_clean_val = [doc.split() for doc in words_val]
-    # Creating Dictionary for val set words
-    diction_val=corpora.Dictionary(doc_clean_val)
-    
-    doc_term_matrix_val = [diction_val.doc2bow(doc) for doc in doc_clean_val]
-    predicted_label_val = []
-    for j,vname in enumerate(vids_list_val):
-        label_vid = val_labels[j]
-        for index, score in sorted(ldamodel_obj[doc_term_matrix_val[j]], key=lambda tup: -1*tup[1]):
-#        for index in [ldamodel_obj[doc_term_matrix[j]].argmax(axis=0)]:
-#            score = ldamodel_obj[doc_term_matrix[j]][index]
-         #   print("Score is : {} of Topic: {}".format(score,index))
-            #if score>0.5:
-            #    topic_action_map_val[label_vid][index]+=1
-            topic_action_map_val[label_vid][index]+=score
-            predicted_label_val.append(index)  
-            break
-            
-    print(topic_action_map_val)
+#    topic_action_map_val = np.zeros((real_topic, NUM_TOPICS))
+#    doc_clean_val = [doc.split() for doc in words_val]
+#    # Creating Dictionary for val set words
+#    diction_val=corpora.Dictionary(doc_clean_val)
+#    
+#    doc_term_matrix_val = [diction_val.doc2bow(doc) for doc in doc_clean_val]
+#    predicted_label_val = []
+#    for j,vname in enumerate(vids_list_val):
+#        label_vid = val_labels[j]
+#        for index, score in sorted(ldamodel_obj[doc_term_matrix_val[j]], key=lambda tup: -1*tup[1]):
+##        for index in [ldamodel_obj[doc_term_matrix[j]].argmax(axis=0)]:
+##            score = ldamodel_obj[doc_term_matrix[j]][index]
+#         #   print("Score is : {} of Topic: {}".format(score,index))
+#            #if score>0.5:
+#            #    topic_action_map_val[label_vid][index]+=1
+#            topic_action_map_val[label_vid][index]+=score
+#            predicted_label_val.append(index)  
+#            break
+#            
+#    print(topic_action_map_val)
     
 #    labs_df = pd.DataFrame(labels, index=vids_list, columns=['label'])
 #    
