@@ -34,30 +34,31 @@ def extract_feats(DATASET, LABELS, CLASS_IDS, BATCH_SIZE, SEQ_SIZE, STEP=1,
     
     if extractor == '2dcnn':
         # SEQ_SIZE is 1 and STEP is 1 by default
-        trajectories, stroke_names = extract_2DCNN_feats(DATASET, LABELS, CLASS_IDS, 
+        trajectories, strokes_name_id = extract_2DCNN_feats(DATASET, LABELS, CLASS_IDS, 
                                                          BATCH_SIZE, partition=part, 
                                                          nstrokes=-1)
     elif extractor == '3dcnn':
         assert SEQ_SIZE >=16, "SEQ_SIZE should be >=16"
-        trajectories, stroke_names = extract_3DCNN_feats(DATASET, LABELS, CLASS_IDS, 
+        trajectories, strokes_name_id = extract_3DCNN_feats(DATASET, LABELS, CLASS_IDS, 
                                                          BATCH_SIZE, SEQ_SIZE, STEP, 
                                                          partition=part, nstrokes=-1)
     
     all_feats = {}
     
     trajectories = [np.stack(stroke) for vid_strokes in trajectories for stroke in vid_strokes]
-    stroke_names_id = [stroke.replace('.avi', '') for vid_strokes in stroke_names for stroke in vid_strokes]
+    strokes_name_id = [stroke.replace('.avi', '') for vid_strokes in strokes_name_id for stroke in vid_strokes]
+    strokes_name_id = [stroke.rsplit('/', 1)[-1] for stroke in strokes_name_id]
     
     for i, v in enumerate(trajectories):
-        all_feats[stroke_names_id[i]] = v
+        all_feats[strokes_name_id[i]] = v
         
-    return all_feats, stroke_names_id
+    return all_feats, strokes_name_id
 
 def apply_clustering(df_train, DATASET, LABELS, ANNOTATION_FILE, base_path):
     
     print("Clustering for 3 clusters... \n")
             
-    km = traj_utils.kmeans(df_train, 3)
+    km = traj_utils.kmeans(df_train, 5)
     labels = km.labels_
     
     acc_values, perm_tuples, gt_list, pred_list = \

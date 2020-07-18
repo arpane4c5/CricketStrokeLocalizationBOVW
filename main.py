@@ -29,11 +29,14 @@ import seaborn as sns
 sns.set()
 
 import bovw_utils as utils
+#import warnings
 
 np.seterr(divide='ignore', invalid='ignore')
+#warnings.filterwarnings("ignore")
 
 # Paths and parameters
 #GRID_SIZE=30
+#km_filename = "km_bow_3d"
 km_filename = "km_bow"
 mnb_modelname='lda_model'
 #cluster_size=50
@@ -41,8 +44,8 @@ real_topic=3
 NUM_TOPICS = 5
 ANNOTATION_FILE = "shots_classes.txt"
 #c3dWinSize = 17
-nbins = 40
 mth = 2
+nbins = 40
 
 
 # Local Paths
@@ -74,8 +77,7 @@ if os.path.exists("/opt/datasets/cricket/ICC_WT20"):
 CLASS_IDS = "/home/arpan/VisionWorkspace/Cricket/cluster_strokes/configs/Class Index_Strokes.txt"
 
 
-def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, use_gpu=False):
-#if __name__ == '__main__':
+def main(base_name, nbins=10, grid=None, cluster_size=10): # main(base_name, c3dWinSize=16, use_gpu=False):
     """
     Function to extract orientation features and find the directions of strokes, 
     using LDA model/clustering and evaluate on three cluster analysis on highlights.
@@ -89,10 +91,6 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     use_gpu: True if training to be done on GPU, False for CPU
     
     """
-
-    if not os.path.exists(base_name):
-        os.makedirs(base_name)
-    
     seed = 1234
     
     print(60*"#")
@@ -142,11 +140,13 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     
     #####################################################################
     
-    # Read the trimmed videos of training set and extract features
-    # Extract HOOF features 
+    # Feature Extraction : (GRID OF / HOOF / 2D CNN / 3DCNN / IDT)
     
     # Get feats for only the training videos. Get ordered histograms of freq
-    print("GRID : {}, nClusters : {} ".format(GRID_SIZE, cluster_size))
+    if grid is not None:
+        print("GRID : {}, nClusters : {} ".format(grid, cluster_size))
+    else:
+        print("mth : {}, nBins : {}, nClusters : {}".format(mth, nbins, cluster_size))
     
     #####################################################################
     # read into dictionary {vidname: np array, ...}
@@ -157,18 +157,26 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     # get Nx4096 numpy matrix with columns as features and rows as window placement features
 #    features, strokes_name_id = select_trimmed_feats(c3dFC7FeatsPath, LABELS, \
 #                                    train_lst, c3dWinSize) 
-    features, strokes_name_id = extract_stroke_feats(DATASET, LABELS, train_lst, \
-                                                     nbins, mth, True, GRID_SIZE) 
-    
-#    BATCH_SIZE, SEQ_SIZE, STEP = 8, 16, 16
-#    features, strokes_name_id = extract_feats(DATASET, LABELS, CLASS_IDS, BATCH_SIZE, 
-#                                              SEQ_SIZE, STEP, extractor='3dcnn')
-#    with open(os.path.join(base_name, "ang_feats.pkl"), "wb") as fp:
-#        pickle.dump(features, fp)
-        
-    with open(os.path.join(base_name, "ang_feats.pkl"), "rb") as fp:
+    if not os.path.exists(base_name):
+        os.makedirs(base_name)    
+        #    # Extract Grid OF / HOOF features {mth = 2, and vary nbins}
+        features, strokes_name_id = extract_stroke_feats(DATASET, LABELS, train_lst, \
+                                                     nbins, mth, True, grid) 
+
+#        BATCH_SIZE, SEQ_SIZE, STEP = 16, 16, 1
+#        features, strokes_name_id = extract_feats(DATASET, LABELS, CLASS_IDS, BATCH_SIZE, 
+#                                                  SEQ_SIZE, STEP, extractor='3dcnn', 
+#                                                  part='train')
+        with open(os.path.join(base_name, "hoof_feats_b"+str(nbins)+".pkl"), "wb") as fp:
+            pickle.dump(features, fp)
+        with open(os.path.join(base_name, "hoof_snames_b"+str(nbins)+".pkl"), "wb") as fp:
+            pickle.dump(strokes_name_id, fp)
+
+    with open(os.path.join(base_name, "hoof_feats_b"+str(nbins)+".pkl"), "rb") as fp:
         features = pickle.load(fp)
-#   
+    with open(os.path.join(base_name, "hoof_snames_b"+str(nbins)+".pkl"), "rb") as fp:
+        strokes_name_id = pickle.load(fp)
+   
     #####################################################################
     # get matrix of features from dictionary (N, vec_size)
     vecs = []
@@ -179,19 +187,20 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     vecs[np.isnan(vecs)] = 0
     vecs[np.isinf(vecs)] = 0
     
-    
     #fc7 layer output size (4096) 
     INP_VEC_SIZE = vecs.shape[-1]
     print("INP_VEC_SIZE = ", INP_VEC_SIZE)
     
-    km_filepath = os.path.join(base_name, km_filename+".pkl")
+    km_filepath = os.path.join(base_name, km_filename)
 #    # Uncomment only while training.
-#    km_model = make_codebook(vecs, cluster_size) 
-##    # Save to disk, if training is performed
-##    print("Writing the KMeans models to disk...")
-#    pickle.dump(km_model, open(km_filepath+"_C"+str(cluster_size), "wb"))
-    # Load from disk, for validation and test sets.
-    km_model = pickle.load(open(km_filepath+"_C"+str(cluster_size), 'rb'))
+    if not os.path.isfile(km_filepath+"_C"+str(cluster_size)+".pkl"):
+        km_model = make_codebook(vecs, cluster_size)  #, model_type='gmm') 
+        ##    # Save to disk, if training is performed
+        print("Writing the KMeans models to disk...")
+        pickle.dump(km_model, open(km_filepath+"_C"+str(cluster_size)+".pkl", "wb"))
+    else:
+        # Load from disk, for validation and test sets.
+        km_model = pickle.load(open(km_filepath+"_C"+str(cluster_size)+".pkl", 'rb'))
     
     ###########################################################################
     # Form the training dataset for supervised classification 
@@ -216,27 +225,24 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     
     ###########################################################################
                 
-#    apply_clustering(df_train, DATASET, LABELS, ANNOTATION_FILE, base_path)
+#    apply_clustering(df_train, DATASET, LABELS, ANNOTATION_FILE, base_name)
 
     
     ###########################################################################
     
-    print("Training stroke labels : ")
-    print(train_labels)
-    print(train_labels.shape)
+#    print("Training stroke labels : ")
+#    print(train_labels)
+#    print(train_labels.shape)
     
     # concat dataframe to contain features and corresponding labels
     #df_train = pd.concat([df_train_mag, labs_df], axis=1)
     
     ###########################################################################
     # Train SVM
-    clf_ang = LinearSVC(verbose=True, random_state=124, max_iter=3000)
-    clf_ang.fit(df_train, train_labels)
-    joblib.dump(clf_ang, os.path.join(base_name, "svm_ang.pkl"))
+    clf = LinearSVC(verbose=False, random_state=124, max_iter=3000)
+    clf.fit(df_train, train_labels)
     
-    clf_ang = joblib.load(os.path.join(base_name, "svm_ang.pkl"))
-    
-    print("Training dataframe formed.")
+    print("Training Complete.")
     ###########################################################################
 #    # Train a classifier on the features.
 #    print("LDA execution !!! ")
@@ -308,16 +314,27 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
 ##################################################################################
 
     # Evaluation on validation set
+    print("Validation phase ....")
+    
+    if not os.path.isfile(os.path.join(base_name, "hoof_feats_val_b"+str(nbins)+".pkl")):
+        
 
-#    features_val, strokes_name_id_val = select_trimmed_feats(c3dFC7FeatsPath, \
-#                                            LABELS, val_lst, c3dWinSize) 
-    features_val, strokes_name_id_val = extract_stroke_feats(DATASET, LABELS, val_lst, \
-                                                     nbins, mth, True, GRID_SIZE) 
-#    with open(os.path.join(base_name, "ang_feats_test.pkl"), "wb") as fp:
-#        pickle.dump(features_val, fp)
-
-    with open(os.path.join(base_name, "ang_feats_val.pkl"), "rb") as fp:
-        features_val = pickle.load(fp)
+#        features_val, strokes_name_id_val = select_trimmed_feats(c3dFC7FeatsPath, \
+#                                                LABELS, val_lst, c3dWinSize) 
+        features_val, strokes_name_id_val = extract_stroke_feats(DATASET, LABELS, val_lst, \
+                                                         nbins, mth, True, grid) 
+#        features_val, strokes_name_id_val = extract_feats(DATASET, LABELS, CLASS_IDS, BATCH_SIZE, 
+#                                                  SEQ_SIZE, STEP, extractor='3dcnn', 
+#                                                  part='val')
+        with open(os.path.join(base_name, "hoof_feats_val_b"+str(nbins)+".pkl"), "wb") as fp:
+            pickle.dump(features_val, fp)
+        with open(os.path.join(base_name, "hoof_snames_val_b"+str(nbins)+".pkl"), "wb") as fp:
+            pickle.dump(strokes_name_id_val, fp)
+    else:
+        with open(os.path.join(base_name, "hoof_feats_val_b"+str(nbins)+".pkl"), "rb") as fp:
+            features_val = pickle.load(fp)
+        with open(os.path.join(base_name, "hoof_snames_val_b"+str(nbins)+".pkl"), "rb") as fp:
+            strokes_name_id_val = pickle.load(fp)
 
     print("Create dataframe BOVW validation set...")
     df_val_hoof, words_val = create_bovw_df(features_val, strokes_name_id_val, \
@@ -366,7 +383,7 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     ###########################################################################
     # Evaluate the BOW classifier (SVM)
     confusion_mat = np.zeros((NUM_TOPICS, NUM_TOPICS))
-    pred = clf_ang.predict(df_val_hoof)
+    pred = clf.predict(df_val_hoof)
     correct = 0
     for i,true_val in enumerate(val_labels):
         if pred[i] == true_val:
@@ -381,9 +398,7 @@ def main(base_name, GRID_SIZE, cluster_size): # main(base_name, c3dWinSize=16, u
     return (float(correct) / len(pred))
 
     ###########################################################################
-    
-#def visualize_topics(ldamodel_obj):
-    
+        
 
 if __name__ == '__main__':
 
@@ -399,21 +414,37 @@ if __name__ == '__main__':
 #                0.8, 0.819047619047619, 0.7714285714285715, 0.7428571428571429, \
 #                0.7904761904761904, 0.7904761904761904, 0.7714285714285715]
     
-    #cluster_size = 50
-    for grid in list(range(30, 31, 10)):
-        for cluster_size in list(range(20, 21, 10)):
-            #folder_name = "lda_HL_hoofNormed_b"+str(nbins)+"_mth"+str(mth)
-            folder_name = "bow_HL_ofAng_grid"+str(grid)
+#    for grid in list(range(10, 41, 10)):
+#        for cluster_size in list(range(10, 41, 10)):
+##            folder_name = "bow_HL_hoof_b"+str(nbins)+"_mth"+str(mth)
+#            #folder_name = "bow_HL_3dres_seq16_cl20"
+#            folder_name = "bow_HL_ofAng_grid"+str(grid)
+#            nclusters.append(cluster_size)
+#            grids.append(grid)
+#            best_acc.append(main(os.path.join(base_path, folder_name), 0, grid, cluster_size))
+#
+#    df = pd.DataFrame({"#Clusters (#Words)":nclusters, "#Grid(g)": grids, "Accuracy(percent)":best_acc})
+#    df = df.pivot("#Clusters (#Words)", "#Grid(g)", "Accuracy(percent)")
+#    normal_heat = sns.heatmap(df, vmin=0., vmax=1., annot=True, fmt='.4f')
+#    normal_heat.figure.savefig(os.path.join(base_path, folder_name, 
+#                                            "normal_heat_hoof_clust.png"))
+    
+    ###########################################################################
+    
+    for grid in list(range(10, 41, 10)):
+        for cluster_size in list(range(10, 41, 10)):
+            folder_name = "bow_HL_hoof_b"+str(grid)+"_mth"+str(mth)
+            #folder_name = "bow_HL_3dres_seq16_cl20"
+#            folder_name = "bow_HL_ofAng_grid"+str(grid)
             nclusters.append(cluster_size)
             grids.append(grid)
-            best_acc.append(main(os.path.join(base_path, folder_name), grid, cluster_size))
-#        
-#    
-#    
-#    df = pd.DataFrame({"#Clusters (#Words)":nclusters, "Grid(g)": grids, "Accuracy(percent)":best_acc})
-#    df = df.pivot("#Clusters (#Words)", "Grid(g)", "Accuracy(percent)")
-#    normal_heat = sns.heatmap(df, vmin=0., vmax=1., annot=True, fmt='.4f')
-#    normal_heat.figure.savefig(os.path.join(base_path, "normal_heat_ofGrid_clust.png"))
+            best_acc.append(main(os.path.join(base_path, folder_name), grid, None, cluster_size))
+            
+    df = pd.DataFrame({"#Clusters (#Words)":nclusters, "#nBins(b)": grids, "Accuracy(percent)":best_acc})
+    df = df.pivot("#Clusters (#Words)", "#nBins(b)", "Accuracy(percent)")
+    normal_heat = sns.heatmap(df, vmin=0., vmax=1., annot=True, fmt='.4f')
+    normal_heat.figure.savefig(os.path.join(base_path, folder_name, 
+                                            "normal_heat_hoof_clust.png"))
     
     ###########################################################################
 
@@ -426,7 +457,6 @@ if __name__ == '__main__':
 #            grids.append(nbins)
 #            best_acc.append(main(os.path.join(base_path, folder_name), nbins, cluster_size))
 #        
-#    
 #    
 #    df = pd.DataFrame({"#Clusters (#Words)":nclusters, "#Bins(b)": grids, "Accuracy(percent)":best_acc})
 #    df = df.pivot("#Clusters (#Words)", "#Bins(b)", "Accuracy(percent)")

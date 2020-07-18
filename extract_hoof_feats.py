@@ -16,7 +16,7 @@ import numpy as np
 
 
 def extract_stroke_feats(vidsPath, labelsPath, partition_lst, nbins, mag_thresh=2, \
-                         density=False, grid_size=30):
+                         density=False, grid_size=None):
     """
     Function to iterate on all the training videos and extract the relevant features.
     vidsPath: str
@@ -29,6 +29,9 @@ def extract_stroke_feats(vidsPath, labelsPath, partition_lst, nbins, mag_thresh=
         pixels with >mag_thresh will be considered significant and used for clustering
     nbins: int
         No. of bins in which the angles have to be divided.
+    grid_size : int or None
+        If it is None, then extract HOOF features using nbins and mag_thresh, else 
+        extract grid features
     """
     
     strokes_name_id = []
@@ -48,12 +51,15 @@ def extract_stroke_feats(vidsPath, labelsPath, partition_lst, nbins, mag_thresh=
         frame_indx = list(frame_dict.values())[0]
         for m,n in frame_indx:
             k = v_file+"_"+str(m)+"_"+str(n)
-            #print("Stroke {} - {}".format(m,n))
+#            print("Stroke {} - {}".format(m,n))
             strokes_name_id.append(k)
             # Extract the stroke features
-#            all_feats[k] = extract_flow_angles(os.path.join(vidsPath, v_file+".avi"), \
-#                     m, n, bins, mag_thresh, density)
-#            all_feats[k] = extract_flow_grid(os.path.join(vidsPath, v_file+".avi"), m, n, grid_size)
+            if grid_size is None:
+                all_feats[k] = extract_flow_angles(os.path.join(vidsPath, v_file+".avi"), \
+                                                 m, n, bins, mag_thresh, density)
+            else:
+                all_feats[k] = extract_flow_grid(os.path.join(vidsPath, v_file+".avi"), \
+                                                 m, n, grid_size)
         #break
     return all_feats, strokes_name_id
 
