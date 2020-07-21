@@ -206,6 +206,9 @@ def create_bovw_df_SA(features, strokes_name_id, model, base, partition='train')
     
     words = []
     row_no = 0
+    beta = -1.
+    if features[list(features.keys())[0]].shape[1] == 2304:
+        beta = -0.6     # For ofGrid10, exp operation gives large values for beta=-1
     # Make bow vectors for all videos.
     for video_index, video in enumerate(strokes_name_id):
         # Get the starting and ending stroke frame positions        
@@ -233,7 +236,7 @@ def create_bovw_df_SA(features, strokes_name_id, model, base, partition='train')
             cl_dists = model.predict_proba(stroke_feats)
         
 #        omega = np.sum(cl_dists, axis=0) / np.sum(cl_dists)
-        omega = np.exp(-.5 * cl_dists)     # beta=1, decreasing it reduces accuracy
+        omega = np.exp(beta * cl_dists)     # beta=1, decreasing it reduces accuracy
         omega = omega / omega.sum(axis = 1)[:, None]    # normalize
         bovw_df[row_no, :] = np.sum(omega, axis=0) / omega.shape[0]
             
