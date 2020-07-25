@@ -24,7 +24,7 @@ from utils import plot_utils
 from evaluation import eval_of_clusters
 
 def extract_feats(DATASET, LABELS, CLASS_IDS, BATCH_SIZE, SEQ_SIZE, STEP=1, 
-                  extractor='2dcnn', part='all'):
+                  extractor='2dcnn', model_path=None, nclasses=5, part='all'):
     
     # Extract autoencoder features 
 #    trajectories, stroke_names = extract_sequence_feats(model_path, DATASET, LABELS, 
@@ -41,6 +41,7 @@ def extract_feats(DATASET, LABELS, CLASS_IDS, BATCH_SIZE, SEQ_SIZE, STEP=1,
         assert SEQ_SIZE >=16, "SEQ_SIZE should be >=16"
         trajectories, strokes_name_id = extract_3DCNN_feats(DATASET, LABELS, CLASS_IDS, 
                                                          BATCH_SIZE, SEQ_SIZE, STEP, 
+                                                         model_path, nclasses, 
                                                          partition=part, nstrokes=-1)
     
     all_feats = {}

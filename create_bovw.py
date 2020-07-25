@@ -118,7 +118,7 @@ def create_bovw_df(features, strokes_name_id, model, base, partition='train'):
     
     if partition=='train':
         # IDF weighting
-        freq = np.sum(bovw_df, axis = 0)
+        freq = np.sum(bovw_df, axis = 0)   #freq = np.sum(1.* (bovw_df>0), axis = 0) #: is old method
         idf = np.log((n_strokes + 1.0) / (freq + 1.0))
         # log (#total docs (N) / #occurrences of term i in training set (n_{i}))
 #        idf =  np.log (bovw_df.shape[0] / bovw_df.sum(axis=0))

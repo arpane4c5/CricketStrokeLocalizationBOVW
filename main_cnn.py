@@ -20,7 +20,7 @@ from extract_cnn_feats import extract_feats
 from extract_cnn_feats import apply_clustering
 from read_c3d_feats import select_trimmed_feats
 from create_bovw import make_codebook
-from create_bovw import create_bovw_df_SA
+from create_bovw import create_bovw_df
 from evaluate import get_cluster_labels
 from evaluate import calculate_accuracy
 from sklearn.svm import LinearSVC
@@ -44,7 +44,8 @@ real_topic=3
 NUM_TOPICS = 5
 ANNOTATION_FILE = "shots_classes.txt"
 #c3dWinSize = 17
-
+#model_path = "/home/arpan/VisionWorkspace/Cricket/CricketStrokeLocalizationBOVW/logs/3dresnet18_ep25_Adam.pt"
+model_path = None
 
 # Local Paths
 LABELS = "/home/arpan/VisionWorkspace/Cricket/scripts/supporting_files/sample_set_labels/sample_labels_shots/ICC WT20"
@@ -144,14 +145,16 @@ def main(base_name, nbins=10, ft_type='2dcnn', cluster_size=10):
     
     #####################################################################
     # read into dictionary {vidname: np array, ...}
+    BATCH_SIZE, SEQ_SIZE, STEP = 16, 16, 1
     print("Loading features from disk...")
 
     if not os.path.exists(base_name):
         os.makedirs(base_name)
 
-        BATCH_SIZE, SEQ_SIZE, STEP = 64, 16, 1
         features, strokes_name_id = extract_feats(DATASET, LABELS, CLASS_IDS, BATCH_SIZE, 
                                                   SEQ_SIZE, STEP, extractor=ft_type, 
+                                                  model_path=model_path, 
+                                                  nclasses=NUM_TOPICS,
                                                   part='train')
         with open(os.path.join(base_name, ft_type+"_feats_train.pkl"), "wb") as fp:
             pickle.dump(features, fp)
@@ -198,7 +201,7 @@ def main(base_name, nbins=10, ft_type='2dcnn', cluster_size=10):
 #                                strokes_name_id, km_model, c3dWinSize)
     
     print("Create a dataframe for HOOF features...")
-    df_train, words_train = create_bovw_df_SA(features, strokes_name_id, km_model,\
+    df_train, words_train = create_bovw_df(features, strokes_name_id, km_model,\
                                                 base_name, "train")
 
     # read the stroke annotation labels from text file.
@@ -308,6 +311,8 @@ def main(base_name, nbins=10, ft_type='2dcnn', cluster_size=10):
 #                                                LABELS, val_lst, c3dWinSize) 
         features_val, strokes_name_id_val = extract_feats(DATASET, LABELS, CLASS_IDS, BATCH_SIZE, 
                                                   SEQ_SIZE, STEP, extractor=ft_type, 
+                                                  model_path=model_path, 
+                                                  nclasses=NUM_TOPICS,
                                                   part='val')
         with open(os.path.join(base_name, ft_type+"_feats_val.pkl"), "wb") as fp:
             pickle.dump(features_val, fp)
@@ -320,7 +325,7 @@ def main(base_name, nbins=10, ft_type='2dcnn', cluster_size=10):
             strokes_name_id_val = pickle.load(fp)
 
     print("Create dataframe BOVW validation set...")
-    df_val_hoof, words_val = create_bovw_df_SA(features_val, strokes_name_id_val, \
+    df_val_hoof, words_val = create_bovw_df(features_val, strokes_name_id_val, \
                                             km_model, base_name, "val")
     
     vids_list_val = list(df_val_hoof.index)
@@ -409,10 +414,10 @@ if __name__ == '__main__':
 #    grids = []
     best_acc = []
     
-    ft_types = ['2dcnn', '3dcnn']
-    folders = ["bow_HL_2dres", "bow_HL_3dres_seq16"]
-    cluster_sizes = list(range(10, 151, 10))
-    keys = ['2D ResNet50', '3D ResNet18']
+    ft_types = ['3dcnn'] #, ] '2dcnn'
+    folders = ["bow_HL_3dresFine_seq16"] #  "bow_HL_2dres"
+    cluster_sizes = list(range(40, 41, 10))
+    keys = ['3D ResNet18'] #'2D ResNet50', 
 
     l = {}
     
@@ -426,8 +431,9 @@ if __name__ == '__main__':
             best_acc.append(acc)
         l[keys[i]] = accuracies
         
-    fname = os.path.join(base_path, "2D3DCNN_SA_cl150.png")
-    plot_accuracy(cluster_sizes, keys, l, "#Words", "Accuracy", fname)
+    print(l)
+#    fname = os.path.join(base_path, "2D3DCNN_SA_cl150.png")
+#    plot_accuracy(cluster_sizes, keys, l, "#Words", "Accuracy", fname)
 
 #    df = pd.DataFrame({"#Clusters (#Words)":nclusters, "#Grid(g)": grids, "Accuracy(percent)":best_acc})
 #    df = df.pivot("#Clusters (#Words)", "#Grid(g)", "Accuracy(percent)")
