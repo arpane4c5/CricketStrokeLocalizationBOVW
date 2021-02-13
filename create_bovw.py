@@ -84,8 +84,8 @@ def create_bovw_df(features, strokes_name_id, model, base, partition='train'):
     # Make bow vectors for all videos.
     for video_index, video in enumerate(strokes_name_id):
         # Get the starting and ending stroke frame positions        
-        m, n = video.rsplit('_', 2)[1:]
-        m, n = int(m), int(n)
+#        m, n = video.rsplit('_', 2)[1:]
+#        m, n = int(m), int(n)
         
         # select the vectors of size Nx1x4096 and remove mid dimension of 1
         stroke_feats = features[video]
@@ -118,7 +118,8 @@ def create_bovw_df(features, strokes_name_id, model, base, partition='train'):
     
     if partition=='train':
         # IDF weighting
-        freq = np.sum(bovw_df, axis = 0)   #freq = np.sum(1.* (bovw_df>0), axis = 0) #: is old method
+        freq = np.sum(bovw_df, axis = 0)        # WC
+#        freq = np.sum(1.* (bovw_df>0), axis = 0) #: is old method (SC)
         idf = np.log((n_strokes + 1.0) / (freq + 1.0))
         # log (#total docs (N) / #occurrences of term i in training set (n_{i}))
 #        idf =  np.log (bovw_df.shape[0] / bovw_df.sum(axis=0))
@@ -212,8 +213,8 @@ def create_bovw_df_SA(features, strokes_name_id, model, base, partition='train')
     # Make bow vectors for all videos.
     for video_index, video in enumerate(strokes_name_id):
         # Get the starting and ending stroke frame positions        
-        m, n = video.rsplit('_', 2)[1:]
-        m, n = int(m), int(n)
+#        m, n = video.rsplit('_', 2)[1:]
+#        m, n = int(m), int(n)
         
         # select the vectors of size Nx1x4096 and remove mid dimension of 1
         stroke_feats = features[video]
@@ -239,7 +240,7 @@ def create_bovw_df_SA(features, strokes_name_id, model, base, partition='train')
         omega = np.exp(beta * cl_dists)     # beta=1, decreasing it reduces accuracy
         omega = omega / omega.sum(axis = 1)[:, None]    # normalize
         bovw_df[row_no, :] = np.sum(omega, axis=0) / omega.shape[0]
-            
+        
 #        if isinstance(model, KMeans):
 #            word_ids = vq(stroke_feats, model.cluster_centers_)[0]  # ignoring the distances in [1]
 #        else:

@@ -40,6 +40,8 @@ def extract_stroke_feats(vidsPath, labelsPath, partition_lst, nbins, mag_thresh=
     for i, v_file in enumerate(partition_lst):
         print('-'*60)
         print(str(i+1)+". v_file :: ", v_file)
+        if '.avi' in v_file or '.mp4' in v_file:
+            v_file = v_file.rsplit('.', 1)[0]
         json_file = v_file + '.json'
         #print("json file :: ", json_file)
         
@@ -51,7 +53,7 @@ def extract_stroke_feats(vidsPath, labelsPath, partition_lst, nbins, mag_thresh=
         frame_indx = list(frame_dict.values())[0]
         for m,n in frame_indx:
             k = v_file+"_"+str(m)+"_"+str(n)
-#            print("Stroke {} - {}".format(m,n))
+            print("Stroke {} - {}".format(m,n))
             strokes_name_id.append(k)
             # Extract the stroke features
             if grid_size is None:
@@ -189,12 +191,12 @@ def extract_flow_grid(vidFile, start, end, grid_size):
         mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
         
         # stack sliced arrays along the first axis (2, 12, 16)
-        sliced_flow = np.stack(( mag[::grid_size, ::grid_size], \
+        sliced_flow = np.stack(( #mag[::grid_size, ::grid_size], \
                                 ang[::grid_size, ::grid_size]), axis=0)
                 
-        stroke_features.append(sliced_flow[1, ...].ravel())     # Only angles
+#        stroke_features.append(sliced_flow[1, ...].ravel())     # Only angles
         #feature = np.array(feature)
-        #stroke_features.append(sliced_flow)
+        stroke_features.append(sliced_flow.ravel())     # Both magnitude and angle
         
         frameNo+=1
         prvs = next_

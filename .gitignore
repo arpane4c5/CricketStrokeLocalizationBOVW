@@ -2,3 +2,4 @@ logs/
 results_log/
 kmeans_model*
 *.pyc
+logs_lda/
