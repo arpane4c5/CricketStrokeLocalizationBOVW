@@ -16,8 +16,8 @@ import numpy as np
 sys.path.insert(0, '../cluster_strokes')
 sys.path.insert(0, '../cluster_strokes/lib')
 
-from utils.extract_autoenc_feats import extract_3DCNN_feats
-from utils.extract_autoenc_feats import extract_2DCNN_feats
+from features.extract_autoenc_feats import extract_3DCNN_feats
+from features.extract_autoenc_feats import extract_2DCNN_feats
 from utils import trajectory_utils as traj_utils
 #from utils import spectral_utils
 from utils import plot_utils

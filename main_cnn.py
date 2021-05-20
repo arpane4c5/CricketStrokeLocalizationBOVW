@@ -9,20 +9,20 @@ Created on Fri Aug 16 14:29:10 2019
 """
 
 import numpy as np
-import pandas as pd
+#import pandas as pd
 import os
 import pickle
-import gensim
-from gensim.corpora import Dictionary
-from gensim import corpora
-from sklearn.externals import joblib
+#import gensim
+#from gensim.corpora import Dictionary
+#from gensim import corpora
+#from sklearn.externals import joblib
 from extract_cnn_feats import extract_feats
-from extract_cnn_feats import apply_clustering
-from read_c3d_feats import select_trimmed_feats
+#from extract_cnn_feats import apply_clustering
+#from read_c3d_feats import select_trimmed_feats
 from create_bovw import make_codebook
 from create_bovw import create_bovw_df
 from evaluate import get_cluster_labels
-from evaluate import calculate_accuracy
+#from evaluate import calculate_accuracy
 from sklearn.svm import LinearSVC
 #import seaborn as sns
 #sns.set()
@@ -414,10 +414,10 @@ if __name__ == '__main__':
 #    grids = []
     best_acc = []
     
-    ft_types = ['3dcnn'] #, ] '2dcnn'
-    folders = ["bow_HL_3dresFine_seq16"] #  "bow_HL_2dres"
-    cluster_sizes = list(range(40, 41, 10))
-    keys = ['3D ResNet18'] #'2D ResNet50', 
+    ft_types = ['3dcnn', '2dcnn']
+    folders = ["bow_HL_3dres_seq16", "bow_HL_2dres"]
+    cluster_sizes = list(range(10, 151, 10))
+    keys = ['3D ResNet18', '2D ResNet50' ]
 
     l = {}
     
